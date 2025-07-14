@@ -1,0 +1,3 @@
+[build]
+root = "."
+start = "python bot.py"
