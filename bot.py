@@ -73,10 +73,16 @@ async def on_ready():
 
 # Controle da fila de músicas
 queues = {}
+
 def get_queue(guild_id):
     if guild_id not in queues:
         queues[guild_id] = []
     return queues[guild_id]
+
+def push_queue(guild_id, title, stream_url):
+    queue = get_queue(guild_id)
+    queue.append({'title': title, 'stream': stream_url})
+    print(f"[DEBUG] Fila atual ({guild_id}): {[m['title'] for m in queue]}")
 
 
 
@@ -184,6 +190,7 @@ async def play(ctx, *, search: str):
                 info = info['entries'][0]
             title = info.get('title', 'Música')
             formats = info.get('formats', [])
+            stream_url = info['url'] 
 
             print(f"[DEBUG] Música encontrada: {title}")
             print(f"[DEBUG] Formatos disponíveis: {[f['ext'] for f in formats if 'ext' in f]}")
@@ -193,15 +200,13 @@ async def play(ctx, *, search: str):
         return
 
     # add a fila de musicas
-    queue = get_queue(ctx.guild.id)
-    queue.append({'title': title, 'formats': formats})
-    
-    print(f"[DEBUG] Música '{title}' adicionada à fila. Fila atual: {[m['title'] for m in queue]}")
+    push_queue(ctx.guild.id, title, stream_url)
 
     if not vc.is_playing():
         play_next(ctx, vc, ctx.guild.id)
     else:
         await ctx.send(f"✅ **{title}** adicionada à fila.")
+
 
 
 # ▶️ Função para tocar a próxima música da fila (streaming)
