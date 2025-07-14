@@ -163,18 +163,23 @@ Não diga que você não tem acesso à internet. Responda naturalmente."""
 
 
 
-# Comandos musicais
+# 🎵 Comando !jota play
 @bot.command(name='play')
 async def play(ctx, *, search: str):
     voice_channel = ctx.author.voice.channel if ctx.author.voice else None
     if not voice_channel:
-        return await ctx.send("Você precisa estar em um canal de voz.")
+        return await ctx.send("❌ Você precisa estar em um canal de voz para tocar música.")
 
     vc = discord.utils.get(bot.voice_clients, guild=ctx.guild)
     if not vc:
-        vc = await voice_channel.connect()
+        try:
+            vc = await voice_channel.connect()
+        except Exception as e:
+            return await ctx.send(f"❌ Erro ao entrar no canal de voz: {e}")
 
     await ctx.send(f"🔍 Procurando: **{search}**...")
+
+    os.makedirs("downloads", exist_ok=True)
 
     ydl_opts = {
         'format': 'bestaudio/best',
@@ -189,15 +194,18 @@ async def play(ctx, *, search: str):
         }],
     }
 
-    os.makedirs("downloads", exist_ok=True)
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(search, download=True)
+            if 'entries' in info:  # resultado de uma busca
+                info = info['entries'][0]
+            title = info.get('title', 'Música')
+            filename = ydl.prepare_filename(info).replace(".webm", ".mp3").replace(".m4a", ".mp3")
+    except Exception as e:
+        await ctx.send(f"❌ Erro ao buscar ou baixar a música: `{e}`")
+        return
 
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        info = ydl.extract_info(search, download=True)
-        if 'entries' in info:
-            info = info['entries'][0]
-        title = info.get('title', 'Música')
-        filename = ydl.prepare_filename(info).replace(".webm", ".mp3").replace(".m4a", ".mp3")
-
+    # Adiciona à fila
     queue = get_queue(ctx.guild.id)
     queue.append({'title': title, 'file': filename})
 
@@ -205,6 +213,7 @@ async def play(ctx, *, search: str):
         play_next(ctx, vc, ctx.guild.id)
     else:
         await ctx.send(f"✅ **{title}** adicionada à fila.")
+
 
 @bot.command(name='stop')
 async def stop(ctx):
