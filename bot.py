@@ -177,7 +177,7 @@ async def play(ctx, *, search: str):
         'default_search': 'ytsearch',
         'extract_flat': False,
         'forcejson': True,
-        'simulate': True,
+        #'simulate': True,
         'source_address': '0.0.0.0',
         'http_headers': {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'
@@ -245,6 +245,8 @@ def play_next(ctx, vc, guild_id):
             play_next(ctx, vc, guild_id)
 
         try:
+            print(f"[DEBUG] Tocando: {title}")
+            print(f"[DEBUG] URL: {audio_url}")
             vc.play(discord.FFmpegPCMAudio(audio_url), after=after_play)
             asyncio.run_coroutine_threadsafe(ctx.send(f"▶️ Tocando agora: **{title}**"), bot.loop)
         except Exception as e:
