@@ -213,7 +213,14 @@ def play_next(ctx, vc, guild_id):
                 play_next(ctx, vc, guild_id)
 
 
-        vc.play(discord.FFmpegPCMAudio(stream_url), after=after_play)
+        vc.play(
+        discord.FFmpegPCMAudio(
+        stream_url,
+        before_options="-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5"
+    ),
+    after=after_play
+)
+
         asyncio.run_coroutine_threadsafe(ctx.send(f"▶️ Tocando agora: **{title}**"), bot.loop)
     else:
         asyncio.run_coroutine_threadsafe(verifica_inatividade(vc, ctx, 60), bot.loop)
