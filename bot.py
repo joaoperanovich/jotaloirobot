@@ -182,14 +182,21 @@ async def play(ctx, *, search: str):
             info = ydl.extract_info(search, download=False)
             if 'entries' in info:
                 info = info['entries'][0]
-            stream_url = info['url']
             title = info.get('title', 'Música')
+            formats = info.get('formats', [])
+
+            print(f"[DEBUG] Música encontrada: {title}")
+            print(f"[DEBUG] Formatos disponíveis: {[f['ext'] for f in formats if 'ext' in f]}")
+
     except Exception as e:
         await ctx.send(f"❌ Erro ao buscar a música: {e}")
         return
 
+    # add a fila de musicas
     queue = get_queue(ctx.guild.id)
-    queue.append({'title': title, 'stream': stream_url})
+    queue.append({'title': title, 'formats': formats})
+    
+    print(f"[DEBUG] Música '{title}' adicionada à fila. Fila atual: {[m['title'] for m in queue]}")
 
     if not vc.is_playing():
         play_next(ctx, vc, ctx.guild.id)
@@ -200,28 +207,34 @@ async def play(ctx, *, search: str):
 # ▶️ Função para tocar a próxima música da fila (streaming)
 def play_next(ctx, vc, guild_id):
     queue = get_queue(guild_id)
+    
     if queue:
         next_song = queue.pop(0)
-        stream_url = next_song['stream']
         title = next_song['title']
+        formats = next_song.get('formats', [])
+        audio_url = None
+
+        for f in formats:
+            if f.get('acodec') != 'none' and f.get('vcodec') == 'none' and f.get('ext') in ['m4a', 'webm']:
+                audio_url = f.get('url')
+                break
+
+        if not audio_url:
+            asyncio.run_coroutine_threadsafe(ctx.send("❌ Nenhum stream de áudio compatível encontrado."), bot.loop)
+            return
 
         def after_play(error):
             if error:
-                print(f"[ERRO STREAM] Ocorreu um erro ao tocar a música: {error}")
-            else:
-                print("[INFO] Música finalizada. Tocando próxima...")
-                play_next(ctx, vc, guild_id)
+                print(f"[ERRO] Falha ao tocar: {error}")
+            play_next(ctx, vc, guild_id)
 
+        try:
+            vc.play(discord.FFmpegPCMAudio(audio_url), after=after_play)
+            asyncio.run_coroutine_threadsafe(ctx.send(f"▶️ Tocando agora: **{title}**"), bot.loop)
+        except Exception as e:
+            print(f"[ERRO] Falha ao iniciar reprodução: {e}")
+            asyncio.run_coroutine_threadsafe(ctx.send(f"❌ Erro ao iniciar reprodução: {e}"), bot.loop)
 
-        vc.play(
-        discord.FFmpegPCMAudio(
-        stream_url,
-        before_options="-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5"
-    ),
-    after=after_play
-)
-
-        asyncio.run_coroutine_threadsafe(ctx.send(f"▶️ Tocando agora: **{title}**"), bot.loop)
     else:
         asyncio.run_coroutine_threadsafe(verifica_inatividade(vc, ctx, 60), bot.loop)
 
