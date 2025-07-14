@@ -79,10 +79,11 @@ def get_queue(guild_id):
         queues[guild_id] = []
     return queues[guild_id]
 
-def push_queue(guild_id, title, stream_url):
-    queue = get_queue(guild_id)
-    queue.append({'title': title, 'stream': stream_url})
-    print(f"[DEBUG] Fila atual ({guild_id}): {[m['title'] for m in queue]}")
+def push_queue(guild_id, title, url):
+    if guild_id not in queues:
+        queues[guild_id] = []
+    queues[guild_id].append({'title': title, 'stream': url})
+
 
 
 
@@ -190,16 +191,26 @@ async def play(ctx, *, search: str):
                 info = info['entries'][0]
             title = info.get('title', 'Música')
             formats = info.get('formats', [])
-            stream_url = info['url'] 
+            
+            # Tenta extrair um stream de áudio válido
+            stream_url = None
+            for f in formats:
+                if f.get('acodec') != 'none' and f.get('vcodec') == 'none' and f.get('ext') in ['m4a', 'webm']:
+                    stream_url = f.get('url')
+                    break
+
+            if not stream_url:
+                await ctx.send("❌ Nenhum stream de áudio compatível encontrado.")
+                return
 
             print(f"[DEBUG] Música encontrada: {title}")
-            print(f"[DEBUG] Formatos disponíveis: {[f['ext'] for f in formats if 'ext' in f]}")
+            print(f"[DEBUG] URL usada: {stream_url}")
 
     except Exception as e:
         await ctx.send(f"❌ Erro ao buscar a música: {e}")
         return
 
-    # add a fila de musicas
+    # ✅ ADICIONA AQUI
     push_queue(ctx.guild.id, title, stream_url)
 
     if not vc.is_playing():
