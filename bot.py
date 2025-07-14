@@ -119,7 +119,9 @@ async def on_message(message):
     if message.content.startswith('!jota'):
         prompt = message.content[len('!jota'):].strip()
 
-        if any(prompt.startswith(cmd) for cmd in ["play", "stop", "next", "resume", "fila", "clear", "ajuda"]):
+        cmd = prompt.split(" ")[0].lower()
+        if cmd in ["play", "stop", "next", "resume", "fila", "clear", "ajuda"]:
+
             await bot.process_commands(message)
             return
 
@@ -159,7 +161,7 @@ Não diga que você não tem acesso à internet. Responda naturalmente."""
             await message.channel.send(f"❌ Erro com GPT: {e}")
         return
 
-    await bot.process_commands(message)
+
 
 # Comandos musicais
 @bot.command(name='play')
