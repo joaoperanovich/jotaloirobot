@@ -185,26 +185,30 @@ async def play(ctx, *, search: str):
     }
 
     try:
+        search_term = search
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(search, download=False)
-            if 'entries' in info:
-                info = info['entries'][0]
+        info = ydl.extract_info(search_term, download=False)
+        if 'entries' in info:
+            info = ydl.extract_info(info['entries'][0]['webpage_url'], download=False)
             title = info.get('title', 'Música')
             formats = info.get('formats', [])
             
             # Tenta extrair um stream de áudio válido
             stream_url = None
             for f in formats:
-                if f.get('acodec') != 'none' and f.get('vcodec') == 'none' and f.get('ext') in ['m4a', 'webm']:
-                    stream_url = f.get('url')
+                if (
+                    f.get('acodec') not in [None, 'none'] and
+                    f.get('vcodec') in [None, 'none'] and
+                    f.get('url') and
+                    f.get('ext') in ['m4a', 'webm']
+                ):
+                    stream_url = f['url']
                     break
 
-            if not stream_url:
-                await ctx.send("❌ Nenhum stream de áudio compatível encontrado.")
-                return
-
+            ctx.send(f"{stream_url}")
             print(f"[DEBUG] Música encontrada: {title}")
             print(f"[DEBUG] URL usada: {stream_url}")
+            
 
     except Exception as e:
         await ctx.send(f"❌ Erro ao buscar a música: {e}")
