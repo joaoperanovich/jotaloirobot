@@ -205,7 +205,7 @@ async def play(ctx, *, search: str):
                     stream_url = f['url']
                     break
 
-            ctx.send(f"{stream_url}")
+            
             print(f"[DEBUG] Música encontrada: {title}")
             print(f"[DEBUG] URL usada: {stream_url}")
             
@@ -227,38 +227,36 @@ async def play(ctx, *, search: str):
 # ▶️ Função para tocar a próxima música da fila (streaming)
 def play_next(ctx, vc, guild_id):
     queue = get_queue(guild_id)
-    
+
     if queue:
         next_song = queue.pop(0)
         title = next_song['title']
-        formats = next_song.get('formats', [])
-        audio_url = None
-
-        for f in formats:
-            if f.get('acodec') != 'none' and f.get('vcodec') == 'none' and f.get('ext') in ['m4a', 'webm']:
-                audio_url = f.get('url')
-                break
-
-        if not audio_url:
-            asyncio.run_coroutine_threadsafe(ctx.send("❌ Nenhum stream de áudio compatível encontrado."), bot.loop)
-            return
+        stream_url = next_song['stream']
 
         def after_play(error):
             if error:
                 print(f"[ERRO] Falha ao tocar: {error}")
+            else:
+                print(f"[INFO] Música finalizada: {title}")
             play_next(ctx, vc, guild_id)
 
         try:
             print(f"[DEBUG] Tocando: {title}")
-            print(f"[DEBUG] URL: {audio_url}")
-            vc.play(discord.FFmpegPCMAudio(audio_url), after=after_play)
+            print(f"[DEBUG] URL: {stream_url}")
+            vc.play(
+                discord.FFmpegPCMAudio(
+                    stream_url,
+                    before_options="-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5"
+                ),
+                after=after_play
+            )
             asyncio.run_coroutine_threadsafe(ctx.send(f"▶️ Tocando agora: **{title}**"), bot.loop)
         except Exception as e:
             print(f"[ERRO] Falha ao iniciar reprodução: {e}")
             asyncio.run_coroutine_threadsafe(ctx.send(f"❌ Erro ao iniciar reprodução: {e}"), bot.loop)
-
     else:
         asyncio.run_coroutine_threadsafe(verifica_inatividade(vc, ctx, 60), bot.loop)
+
 
 # ⏸️ Pausar música
 @bot.command(name='stop')
