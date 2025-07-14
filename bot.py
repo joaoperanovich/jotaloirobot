@@ -187,7 +187,7 @@ async def play(ctx, *, search: str):
     try:
         search_term = search
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        info = ydl.extract_info(search_term, download=False)
+            info = ydl.extract_info(search_term, download=False)
         if 'entries' in info:
             info = ydl.extract_info(info['entries'][0]['webpage_url'], download=False)
             title = info.get('title', 'Música')
