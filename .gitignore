@@ -1,0 +1,8 @@
+bin/
+downloads/
+*.mp3
+*.m4a
+*.webm
+.env
+__pycache__/
+*.mp4
