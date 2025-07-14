@@ -78,23 +78,7 @@ def get_queue(guild_id):
         queues[guild_id] = []
     return queues[guild_id]
 
-def play_next(ctx, vc, guild_id):
-    queue = get_queue(guild_id)
-    if queue:
-        next_song = queue.pop(0)
-        file_path = next_song['file']
-        def after_play(error):
-            try:
-                if os.path.exists(file_path):
-                    os.remove(file_path)
-                    print(f"[AUTODELETE] Arquivo removido: {file_path}")
-            except Exception as e:
-                print(f"[ERRO] Não conseguiu apagar o arquivo: {e}")
-            play_next(ctx, vc, guild_id)
-        vc.play(discord.FFmpegPCMAudio(file_path), after=after_play)
-        asyncio.run_coroutine_threadsafe(ctx.send(f"▶️ Tocando agora: **{next_song['title']}**"), bot.loop)
-    else:
-        asyncio.run_coroutine_threadsafe(verifica_inatividade(vc, ctx, 60), bot.loop)
+
 
 async def verifica_inatividade(vc, ctx, timeout=60):
     await asyncio.sleep(timeout)
@@ -178,47 +162,63 @@ async def play(ctx, *, search: str):
             return await ctx.send(f"❌ Erro ao entrar no canal de voz: {e}")
 
     await ctx.send(f"🔍 Procurando: **{search}**...")
+    if "open.spotify.com" in search.lower():
+        await ctx.send("⚠️ Não consigo tocar músicas diretamente do Spotify. Tente pesquisar o nome da música no YouTube, tipo: `!jota play nome da música` 🎵")
+        return
 
-    os.makedirs("downloads", exist_ok=True)
 
     ydl_opts = {
-    'format': 'bestaudio/best',
-    'noplaylist': True,
-    'quiet': True,
-    'default_search': 'ytsearch',
-    'outtmpl': f"downloads/{ctx.guild.id}_%(title).40s.%(ext)s",
-    'postprocessors': [{
-        'key': 'FFmpegExtractAudio',
-        'preferredcodec': 'mp3',
-        'preferredquality': '192',
-    }],
-    'http_headers': {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'
+        'format': 'bestaudio/best',
+        'quiet': True,
+        'default_search': 'ytsearch',
+        'noplaylist': True,
+        'http_headers': {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'
+        }
     }
-}
-
 
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(search, download=True)
-            if 'entries' in info:  # resultado de uma busca
+            info = ydl.extract_info(search, download=False)
+            if 'entries' in info:
                 info = info['entries'][0]
+            stream_url = info['url']
             title = info.get('title', 'Música')
-            filename = ydl.prepare_filename(info).replace(".webm", ".mp3").replace(".m4a", ".mp3")
     except Exception as e:
-        await ctx.send(f"❌ Erro ao buscar ou baixar a música: `{e}`")
+        await ctx.send(f"❌ Erro ao buscar a música: {e}")
         return
 
     # Adiciona à fila
     queue = get_queue(ctx.guild.id)
-    queue.append({'title': title, 'file': filename})
+    queue.append({'title': title, 'stream': stream_url})
 
     if not vc.is_playing():
         play_next(ctx, vc, ctx.guild.id)
     else:
         await ctx.send(f"✅ **{title}** adicionada à fila.")
 
+# ▶️ Função para tocar a próxima música da fila (streaming)
+def play_next(ctx, vc, guild_id):
+    queue = get_queue(guild_id)
+    if queue:
+        next_song = queue.pop(0)
+        stream_url = next_song['stream']
+        title = next_song['title']
 
+        def after_play(error):
+            if error:
+                print(f"[ERRO STREAM] Ocorreu um erro ao tocar a música: {error}")
+            else:
+                print("[INFO] Música finalizada. Tocando próxima...")
+                play_next(ctx, vc, guild_id)
+
+
+        vc.play(discord.FFmpegPCMAudio(stream_url), after=after_play)
+        asyncio.run_coroutine_threadsafe(ctx.send(f"▶️ Tocando agora: **{title}**"), bot.loop)
+    else:
+        asyncio.run_coroutine_threadsafe(verifica_inatividade(vc, ctx, 60), bot.loop)
+
+# ⏸️ Pausar música
 @bot.command(name='stop')
 async def stop(ctx):
     vc = discord.utils.get(bot.voice_clients, guild=ctx.guild)
@@ -228,6 +228,7 @@ async def stop(ctx):
     else:
         await ctx.send("❌ Não estou tocando nada agora.")
 
+# ▶️ Retomar música
 @bot.command(name='resume')
 async def resume(ctx):
     vc = discord.utils.get(bot.voice_clients, guild=ctx.guild)
@@ -237,6 +238,7 @@ async def resume(ctx):
     else:
         await ctx.send("❌ Não tem música pausada pra retomar.")
 
+# ⏭️ Pular para a próxima
 @bot.command(name='next')
 async def next(ctx):
     vc = discord.utils.get(bot.voice_clients, guild=ctx.guild)
@@ -246,6 +248,7 @@ async def next(ctx):
     else:
         await ctx.send("❌ Não estou tocando nada no momento.")
 
+# 📋 Ver fila
 @bot.command(name='fila')
 async def fila(ctx):
     queue = get_queue(ctx.guild.id)
@@ -255,6 +258,7 @@ async def fila(ctx):
         lista = "\n".join([f"{i+1}. {m['title']}" for i, m in enumerate(queue)])
         await ctx.send(f"📃 Fila de músicas:\n{lista}")
 
+# 🗑️ Limpar fila
 @bot.command(name='clear')
 async def clear(ctx):
     vc = discord.utils.get(bot.voice_clients, guild=ctx.guild)
