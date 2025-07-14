@@ -162,16 +162,16 @@ async def play(ctx, *, search: str):
             return await ctx.send(f"❌ Erro ao entrar no canal de voz: {e}")
 
     await ctx.send(f"🔍 Procurando: **{search}**...")
-    if "open.spotify.com" in search.lower():
-        await ctx.send("⚠️ Não consigo tocar músicas diretamente do Spotify. Tente pesquisar o nome da música no YouTube, tipo: `!jota play nome da música` 🎵")
-        return
-
 
     ydl_opts = {
-        'format': 'bestaudio/best',
+        'format': 'bestaudio[ext=m4a]',
         'quiet': True,
-        'default_search': 'ytsearch',
         'noplaylist': True,
+        'default_search': 'ytsearch',
+        'extract_flat': False,
+        'forcejson': True,
+        'simulate': True,
+        'source_address': '0.0.0.0',
         'http_headers': {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'
         }
@@ -188,7 +188,6 @@ async def play(ctx, *, search: str):
         await ctx.send(f"❌ Erro ao buscar a música: {e}")
         return
 
-    # Adiciona à fila
     queue = get_queue(ctx.guild.id)
     queue.append({'title': title, 'stream': stream_url})
 
@@ -196,6 +195,7 @@ async def play(ctx, *, search: str):
         play_next(ctx, vc, ctx.guild.id)
     else:
         await ctx.send(f"✅ **{title}** adicionada à fila.")
+
 
 # ▶️ Função para tocar a próxima música da fila (streaming)
 def play_next(ctx, vc, guild_id):
