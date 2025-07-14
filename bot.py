@@ -182,17 +182,21 @@ async def play(ctx, *, search: str):
     os.makedirs("downloads", exist_ok=True)
 
     ydl_opts = {
-        'format': 'bestaudio/best',
-        'noplaylist': True,
-        'quiet': True,
-        'default_search': 'ytsearch',
-        'outtmpl': f"downloads/{ctx.guild.id}_%(title).40s.%(ext)s",
-        'postprocessors': [{
-            'key': 'FFmpegExtractAudio',
-            'preferredcodec': 'mp3',
-            'preferredquality': '192',
-        }],
+    'format': 'bestaudio/best',
+    'noplaylist': True,
+    'quiet': True,
+    'default_search': 'ytsearch',
+    'outtmpl': f"downloads/{ctx.guild.id}_%(title).40s.%(ext)s",
+    'postprocessors': [{
+        'key': 'FFmpegExtractAudio',
+        'preferredcodec': 'mp3',
+        'preferredquality': '192',
+    }],
+    'http_headers': {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'
     }
+}
+
 
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
